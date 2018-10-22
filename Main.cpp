@@ -15,7 +15,7 @@
 using namespace std;
 
 #define IXMain(i, j,N) ((i)+(N)*(j))
-
+#define IXMColor(i, j, c) ((i)*(getNumChannels())*(getNumCells())+(j)*(getNumChannels())+(c))
 // opengl setup related variables
 unsigned int window_width = 640, window_height = 640;
 
@@ -25,7 +25,7 @@ bool leftClick = false;
 bool rightClick = false;
 int mouseX;
 int mouseY;
-int channels = 1;
+int channels = 3;
 bool viewVelocity = false;
 
 // simulation related variables
@@ -69,20 +69,37 @@ void readBMP(char* filename, int channels=1) {
     }
 }
 
-void setDensityFromPic(const unsigned char *data) {
+// simulation functions
+int getNumCells() {
+  return numCells;
+}
+
+int getNumChannels() {
+  return channels;
+}
+
+void setDensityFromPic(const unsigned char *data, bool monoChrome=false) {
 
     mySimulator.reset();
     for (int i = 0,ii = mySimulator.getNumCells(); i < mySimulator.getNumCells(); ii--, i++) {
         for (int j = 0, jj = mySimulator.getNumCells(); j < mySimulator.getNumCells(); jj--, j++) {
-            
-            mySimulator.setDensity(i, j, (double) (int) data[IXMain(ii, jj,mySimulator.getNumCells())]);
+            if(channels == 1) {
+                mySimulator.setDensity(i, j, (double) (int) data[IXMain(ii, jj,mySimulator.getNumCells())]);
+            } else {
+                for (int c = 0; c < channels; c++) {
+                    if(monoChrome) {
+                        mySimulator.setDensity(i, j, c, (double) (int) data[IXMain(ii, jj,mySimulator.getNumCells())]);
+                    } else {
+                        mySimulator.setDensity(i, j, c, (double) (int) data[IXMColor(ii, jj, c)]);
+                        //if(i < 1) {
+                        //    std::cout <<"index: " << IXMColor(i, j, c) << " ";
+                        //    std::cout << std::hex << (int) (data[IXMColor(i, j, c)]) <<std::endl;
+                        //}
+                    }
+                }
+            }
         }
     }
-}
-
-// simulation functions
-int getNumCells() {
-  return numCells;
 }
 
 // opengl functions
@@ -208,7 +225,14 @@ void myGlutKeyboard(unsigned char key, int x, int y) {
             viewVelocity = !viewVelocity;
             break;
         case 'r':
-        setDensityFromPic(mona);
+            setDensityFromPic(mona, true);
+            break;
+        case 'm':
+            setDensityFromPic(macaw, true);
+            break;
+        case 'R':
+            setDensityFromPic(monaClr);
+            break;
         //readBMP("macaw-mono.bmp");
         break;
         default:
@@ -239,9 +263,20 @@ void myGlutMouse(int button, int state, int x, int y) {
             if(channels == 1) {
                 mySimulator.setDensity(i, j, 100.0);
             } else {
-                for (int c = 0; c < channels; c++) {
-                    //TODO
+                double red = 0;
+                double green = 0;
+                double blue = 0;
+                int rColorPicker = rand() % 3;
+                if(rColorPicker == 0) {
+                    red = 255;
+                } else if (rColorPicker == 1) {
+                    green = 255;
+                } else {
+                    blue = 255;
                 }
+                mySimulator.setDensity(i, j, 0, red);
+                mySimulator.setDensity(i, j, 1, green);
+                mySimulator.setDensity(i, j, 2, blue);
             }
      
         } else if (button == GLUT_RIGHT_BUTTON || button == GLUT_MIDDLE_BUTTON) {
@@ -271,9 +306,20 @@ void myGlutMotion(int x, int y) {
         if(channels == 1) {
                 mySimulator.setDensity(i, j, 100.0);
         } else {
-            for (int c = 0; c < channels; c++) {
-                //TODO
+            double red = 0;
+            double green = 0;
+            double blue = 0;
+            int rColorPicker = rand() % 3;
+            if(rColorPicker == 0) {
+                red = 255;
+            } else if (rColorPicker == 1) {
+                green = 255;
+            } else {
+                blue = 255;
             }
+            mySimulator.setDensity(i, j, 0, red);
+            mySimulator.setDensity(i, j, 1, green);
+            mySimulator.setDensity(i, j, 2, blue);
         }
 
     } else if (rightClick) {        
@@ -319,6 +365,49 @@ void drawVelocity() {
     glEnd ();
 }
 
+void threeChannels(int i, int j, double x, double y, double h) {
+    double r00 = mySimulator.getDensity(IXRed(i, j));
+    double g00 = mySimulator.getDensity(IXGreen(i, j));
+    double b00 = mySimulator.getDensity(IXBlue(i, j));
+
+    double r01 = mySimulator.getDensity(IXRed(i, j + 1));
+    double g01 = mySimulator.getDensity(IXGreen(i, j + 1));
+    double b01 = mySimulator.getDensity(IXBlue(i, j + 1));
+
+    double r10 = mySimulator.getDensity(IXRed(i + 1, j));
+    double g10 = mySimulator.getDensity(IXGreen(i + 1, j));
+    double b10 = mySimulator.getDensity(IXBlue(i + 1, j));
+
+    double r11 = mySimulator.getDensity(IXRed(i + 1, j + 1));
+    double g11 = mySimulator.getDensity(IXGreen(i + 1, j + 1));
+    double b11 = mySimulator.getDensity(IXBlue(i + 1, j + 1));
+
+    glColor3d(r00, g00, b00);
+    glVertex3f(x, y, 0);
+    glColor3d(r10, g10, b10);
+    glVertex3f(x + h, y, 0);
+    glColor3d(r11, g11, b11);
+    glVertex3f(x + h, y + h, 0);
+    glColor3d(r01, g01, b01);
+    glVertex3f(x, y + h, 0);
+}
+
+void oneChannel(int i, int j, double x, double y, double h) {
+    double d00 = mySimulator.getDensity(IX(i, j));
+    double d01 = mySimulator.getDensity(IX(i, j+1));
+    double d10 = mySimulator.getDensity(IX(i+1, j));
+    double d11 = mySimulator.getDensity(IX(i+1, j+1));
+
+    glColor3d(d00, d00, d00); 
+    glVertex3f(x, y, 0);
+    glColor3d(d10, d10, d10); 
+    glVertex3f(x + h, y, 0);
+    glColor3d(d11, d11, d11); 
+    glVertex3f(x + h, y + h, 0);
+    glColor3d(d01, d01, d01); 
+    glVertex3f(x, y + h, 0);
+}
+
 void drawDensity() {
       double h = 1.0 / mySimulator.getNumCells();
     glBegin(GL_QUADS);
@@ -326,20 +415,11 @@ void drawDensity() {
         double x = (i - 0.5) * h;
         for (int j = 0; j <= mySimulator.getNumCells(); j++) {
             double y = (j - 0.5) * h;
-                
-            double d00 = mySimulator.getDensity(IX(i, j));
-            double d01 = mySimulator.getDensity(IX(i, j+1));
-            double d10 = mySimulator.getDensity(IX(i+1, j));
-            double d11 = mySimulator.getDensity(IX(i+1, j+1));
-
-            glColor3d(d00, d00, d00); 
-            glVertex3f(x, y, 0);
-            glColor3d(d10, d10, d10); 
-            glVertex3f(x + h, y, 0);            
-            glColor3d(d11, d11, d11); 
-            glVertex3f(x + h, y + h, 0);
-            glColor3d(d01, d01, d01); 
-            glVertex3f(x, y + h, 0);
+            if( channels == 1) {
+                oneChannel(i, j, x, y, h);
+            } else {
+                threeChannels(i, j, x, y, h);
+            }
         }
     }
     glEnd();
@@ -351,7 +431,7 @@ void initializeFields() {
         mySimulator.setDensity(32, 32, 100.0);
     } else {
         for (int c = 0; c < channels; c++) {
-            //TODO
+            mySimulator.setDensity(32, 32, c, 100.0 );
         }
     }
 

@@ -4,7 +4,11 @@
 #include <vector>
 
 #define IX(i, j) ((i)+(getNumCells()+2)*(j))
+#define IXColor(i, j, c) ((i)*(getNumChannels())*(getNumCells()+2)+(j)*(getNumChannels())+(c))
 #define SWAPPING(x0,x) {double *tmp=x0;x0=x;x=tmp;}
+#define IXRed(i, j) IXColor(i, j, 0)
+#define IXGreen(i,j) IXColor(i, j, 1)
+#define IXBlue(i,j) IXColor(i, j, 2)
 
 class MyWorld {
  public:
@@ -19,10 +23,12 @@ class MyWorld {
     double getVelocityU(int _index) { return mU[_index]; }
     double getVelocityV(int _index) { return mV[_index]; }
     void setDensity(int _i, int _j, double _source) { mDensity[IX(_i, _j)] += mTimeStep * _source; }
+    void setDensity(int _i, int _j, int c, double _source) { mDensity[IXColor(_i, _j, c)] += mTimeStep * _source; }
     void setU(int _i, int _j, double _force) { mU[IX(_i, _j)] += mTimeStep * _force; }
     void setV(int _i, int _j, double _force) { mV[IX(_i, _j)] += mTimeStep * _force; }
     void reset();
     void simulate();
+    int getNumChannels() { return mChannels;}
     
  protected:
     void densityStep(double *_x, double *_x0);
@@ -37,6 +43,9 @@ class MyWorld {
     void linearSolve(double *_x, double *_x0, double _a, double _c, int channels=1);
     void setBoundary(double *_x);
     void setVelocityBoundary(double *_u, double *_v);
+    void setBoundaryWithChannels(double *_x);
+    void setBoundaryChannelsHelper(double *_x, int c);
+
 
     int mChannels;
     int mNumCells;
