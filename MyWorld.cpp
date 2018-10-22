@@ -7,12 +7,15 @@ MyWorld::MyWorld() {
 MyWorld::~MyWorld() {
 }
 
-void MyWorld::initialize(int _numCells, double _timeStep, double _diffCoef, double _viscCoef) {
+void MyWorld::initialize(int _numCells, double _timeStep, double _diffCoef, double _viscCoef, int channels) {
     mNumCells = _numCells;
     mTimeStep = _timeStep;
     mDiffusionCoef = _diffCoef;
     mViscosityCoef = _viscCoef;
-
+    if(channels == 0) {
+        channels = 1;
+    }
+    mChannels = channels;
     int size = (mNumCells + 2) * (mNumCells + 2);
 
     // Allocate memory for velocity and density fields
@@ -20,14 +23,10 @@ void MyWorld::initialize(int _numCells, double _timeStep, double _diffCoef, doub
     mV = new double[size];
     mPreU = new double[size];
     mPreV = new double[size];
-    mDensity = new double[size];
-    mPreDensity = new double[size];
-    
-    for (int i = 0; i < size; i++) {
-        mU[i] = mPreU[i] = 0.0;
-        mV[i] = mPreV[i] = 0.0;
-        mDensity[i] = mPreDensity[i] = 0.0;
-    }            
+    mDensity = new double[size*mChannels];
+    mPreDensity = new double[size*mChannels];
+
+    reset();
 }
 
 void MyWorld::reset() {
@@ -36,8 +35,8 @@ void MyWorld::reset() {
     std::fill_n(mV, size, 0);
     std::fill_n(mPreU, size, 0);
     std::fill_n(mPreV, size, 0);
-    std::fill_n(mDensity, size, 0);
-    std::fill_n(mPreDensity, size, 0);
+    std::fill_n(mDensity, size*mChannels, 0);
+    std::fill_n(mPreDensity, size*mChannels, 0);
 }
 
 double MyWorld::getTimeStep() {
@@ -82,7 +81,7 @@ void MyWorld::diffuseVelocity(double *_u, double *_v, double *_u0, double *_v0) 
     setVelocityBoundary(_u, _v);
 }
 
-void MyWorld::advect(double *_d, double *_d0, double *_u, double *_v) {
+void MyWorld::advect(double *_d, double *_d0, double *_u, double *_v, int channels) {
     double dt0 = mTimeStep * mNumCells;  // h / x 
     for (int i = 1; i <= mNumCells; i++) {
         for (int j = 1; j <= mNumCells; j++) {
@@ -106,7 +105,9 @@ void MyWorld::advect(double *_d, double *_d0, double *_u, double *_v) {
             double s0 = 1 - s1;
             double t1 = y - j0;
             double t0 = 1 - t1;
-            _d[IX(i,j)] = s0 * (t0 * _d0[IX(i0, j0)] + t1 * _d0[IX(i0,j1)])+ s1 * (t0 * _d0[IX(i1, j0)] + t1 * _d0[IX(i1,j1)]);
+            if(channels ==1) {
+                _d[IX(i,j)] = s0 * (t0 * _d0[IX(i0, j0)] + t1 * _d0[IX(i0,j1)])+ s1 * (t0 * _d0[IX(i1, j0)] + t1 * _d0[IX(i1,j1)]);
+            }
 	    }
     }
 }
@@ -172,11 +173,13 @@ void MyWorld::externalForces() {
     }
 }
 
-void MyWorld::linearSolve(double *_x, double *_x0, double _a, double _c) {
+void MyWorld::linearSolve(double *_x, double *_x0, double _a, double _c, int channels) {
     for (int k = 0; k < 20; k++) {
         for (int i = 1; i <= mNumCells; i++) {
             for (int j = 1; j <= mNumCells; j++) {
-                _x[IX(i, j)] = (_x0[IX(i, j)] + _a * (_x[IX(i-1, j)] + _x[IX(i+1, j)] + _x[IX(i, j-1)] + _x[IX(i, j+1)])) / _c;
+                if(channels == 1) {
+                    _x[IX(i, j)] = (_x0[IX(i, j)] + _a * (_x[IX(i-1, j)] + _x[IX(i+1, j)] + _x[IX(i, j-1)] + _x[IX(i, j+1)])) / _c;
+                }
             }
         }
     }

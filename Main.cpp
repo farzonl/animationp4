@@ -25,6 +25,7 @@ bool leftClick = false;
 bool rightClick = false;
 int mouseX;
 int mouseY;
+int channels = 1;
 bool viewVelocity = false;
 
 // simulation related variables
@@ -106,12 +107,12 @@ void initializeFields();
 // main function
 int main(int argc, char *argv[])
 {
-    mySimulator.initialize(numCells, 0.1, 0.0, 0.0);
+    mySimulator.initialize(numCells, 0.1, 0.0, 0.0, channels);
 
     if (argc == 2 && strcmp(argv[1], "-p") == 0)
       screenSaverOn = 1;
     
-    if (screenSaverOn)    
+    if (screenSaverOn)
       initializeFields();
     
     
@@ -235,7 +236,13 @@ void myGlutMouse(int button, int state, int x, int y) {
         
         if (button == GLUT_LEFT_BUTTON) {
             leftClick = true;
-            mySimulator.setDensity(i, j, 100.0);
+            if(channels == 1) {
+                mySimulator.setDensity(i, j, 100.0);
+            } else {
+                for (int c = 0; c < channels; c++) {
+                    //TODO
+                }
+            }
      
         } else if (button == GLUT_RIGHT_BUTTON || button == GLUT_MIDDLE_BUTTON) {
             rightClick = true;
@@ -261,7 +268,13 @@ void myGlutMotion(int x, int y) {
         return;
         
     if (leftClick) {
-        mySimulator.setDensity(i, j, 100.0);
+        if(channels == 1) {
+                mySimulator.setDensity(i, j, 100.0);
+        } else {
+            for (int c = 0; c < channels; c++) {
+                //TODO
+            }
+        }
 
     } else if (rightClick) {        
         mySimulator.setU(i, j, x - mouseX);
@@ -334,7 +347,14 @@ void drawDensity() {
 }
 
 void initializeFields() {
-  mySimulator.setDensity(32, 32, 100.0);
+    if(channels == 1) {
+        mySimulator.setDensity(32, 32, 100.0);
+    } else {
+        for (int c = 0; c < channels; c++) {
+            //TODO
+        }
+    }
+
   mySimulator.setU(32, 32, 10);
   mySimulator.setV(32, 32, 20);
 }

@@ -12,7 +12,7 @@ class MyWorld {
 
     virtual ~MyWorld();
 
-    void initialize(int _numCells, double _timeStep, double _diffCoef, double _viscCoef);
+    void initialize(int _numCells, double _timeStep, double _diffCoef, double _viscCoef, int channels);
     double getTimeStep();
     int getNumCells() { return mNumCells;}
     double getDensity(int _index) { return mDensity[_index]; }
@@ -29,15 +29,16 @@ class MyWorld {
     void velocityStep(double *_u, double *_v, double *_u0, double *_v0);
     void diffuseDensity(double *_x, double *_x0);
     void diffuseVelocity(double *_u, double *_v, double *_u0, double *_v0);
-    void advect(double *_d, double *_d0, double *_u, double *_v);
+    void advect(double *_d, double *_d0, double *_u, double *_v, int channels=1);
     void advectDensity(double *_d, double *_d0, double *_u, double *_v);
     void advectVelocity(double *_u, double *_v, double *_u0, double *_v0);
     void project(double *_u, double *_v, double *_u0, double *_v0);
     void externalForces();
-    void linearSolve(double *_x, double *_x0, double _a, double _c);
+    void linearSolve(double *_x, double *_x0, double _a, double _c, int channels=1);
     void setBoundary(double *_x);
     void setVelocityBoundary(double *_u, double *_v);
 
+    int mChannels;
     int mNumCells;
     double mTimeStep;
     double mDiffusionCoef;
