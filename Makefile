@@ -19,7 +19,7 @@ OBJS =$(SOURCES:%.cpp=%.o)
 all: $(TARGET)
 					
 $(TARGET): $(OBJS) $(HEADERS)
-	$(CXX)  -o $@ $(OBJS) $(LIBS_GL)
+	$(CXX) -o $@ $(OBJS) $(LIBS_GL)
 
 clean:
 	-rm -f $(OBJS)

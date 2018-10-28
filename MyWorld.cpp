@@ -1,18 +1,29 @@
 #include "MyWorld.h"
 
-
 MyWorld::MyWorld() {
 }
 
 MyWorld::~MyWorld() {
+    delete [] mU;
+    delete [] mV;
+    delete [] mPreU;
+    delete [] mPreV;
+    delete [] mDensity;
+    delete [] mPreDensity;
+    if(mDensityInBytes != NULL) {
+        delete [] mDensityInBytes;
+    }
 }
 
-void MyWorld::initialize(int _numCells, double _timeStep, double _diffCoef, double _viscCoef) {
+void MyWorld::initialize(int _numCells, double _timeStep, double _diffCoef, double _viscCoef, int channels) {
     mNumCells = _numCells;
     mTimeStep = _timeStep;
     mDiffusionCoef = _diffCoef;
     mViscosityCoef = _viscCoef;
-
+    if(channels <= 0) {
+        channels = 1;
+    }
+    mChannels = channels;
     int size = (mNumCells + 2) * (mNumCells + 2);
 
     // Allocate memory for velocity and density fields
@@ -20,14 +31,43 @@ void MyWorld::initialize(int _numCells, double _timeStep, double _diffCoef, doub
     mV = new double[size];
     mPreU = new double[size];
     mPreV = new double[size];
-    mDensity = new double[size];
-    mPreDensity = new double[size];
-    
-    for (int i = 0; i < size; i++) {
-        mU[i] = mPreU[i] = 0.0;
-        mV[i] = mPreV[i] = 0.0;
-        mDensity[i] = mPreDensity[i] = 0.0;
-    }            
+    mDensity = new double[size*mChannels];
+    mPreDensity = new double[size*mChannels];
+
+    reset();
+}
+
+void MyWorld::reset() {
+    int size = (mNumCells + 2) * (mNumCells + 2);
+    std::fill_n(mU, size, 0);
+    std::fill_n(mV, size, 0);
+    std::fill_n(mPreU, size, 0);
+    std::fill_n(mPreV, size, 0);
+    std::fill_n(mDensity, size*mChannels, 0);
+    std::fill_n(mPreDensity, size*mChannels, 0);
+}
+
+unsigned char* MyWorld::getDensityAsByte() {
+    int size = (mNumCells + 2) * (mNumCells + 2) * mChannels;
+    if(mDensityInBytes== NULL) {
+        mDensityInBytes = new unsigned char[size];
+    }
+    /*for (int i = 1; i <= mNumCells; i++) {
+            for (int j = 1; j <= mNumCells; j++) {
+                if(mChannels == 1) {
+                    mDensityInBytes[IX(i, j)] = 100*mDensity[IX(i, j)];
+                } else {
+                    for (int c = 0; c < mChannels; c++) {
+                        mDensityInBytes[IXColor(i, j, c)] = 100*mDensity[IXColor(i, j, c)];
+                    }
+                }
+            }
+    }*/
+    for(int i = 0; i < size; i++) {
+        //std::cout << mDensity[i] << "," << std::endl;
+        mDensityInBytes[i] = (unsigned char) 100*mDensity[i];
+    }
+    return mDensityInBytes;
 }
 
 double MyWorld::getTimeStep() {
@@ -61,8 +101,8 @@ void MyWorld::velocityStep(double *_u, double *_v, double *_u0, double *_v0) {
 
 void MyWorld::diffuseDensity(double *_x, double *_x0) {
     double a = mTimeStep * mDiffusionCoef * mNumCells * mNumCells;
-    linearSolve(_x, _x0, a, 1 + 4 * a);
-    setBoundary(_x);
+    linearSolve(_x, _x0, a, 1 + 4 * a, mChannels);
+    setBoundaryWithChannels(_x);
 }
 
 void MyWorld::diffuseVelocity(double *_u, double *_v, double *_u0, double *_v0) {
@@ -72,7 +112,7 @@ void MyWorld::diffuseVelocity(double *_u, double *_v, double *_u0, double *_v0) 
     setVelocityBoundary(_u, _v);
 }
 
-void MyWorld::advectDensity(double *_d, double *_d0, double *_u, double *_v) {
+void MyWorld::advect(double *_d, double *_d0, double *_u, double *_v, int channels) {
     double dt0 = mTimeStep * mNumCells;  // h / x 
     for (int i = 1; i <= mNumCells; i++) {
         for (int j = 1; j <= mNumCells; j++) {
@@ -96,37 +136,119 @@ void MyWorld::advectDensity(double *_d, double *_d0, double *_u, double *_v) {
             double s0 = 1 - s1;
             double t1 = y - j0;
             double t0 = 1 - t1;
-            _d[IX(i,j)] = s0 * (t0 * _d0[IX(i0, j0)] + t1 * _d0[IX(i0,j1)])+ s1 * (t0 * _d0[IX(i1, j0)] + t1 * _d0[IX(i1,j1)]);
-	}
+            if(channels ==1) {
+                _d[IX(i,j)] = s0 * (t0 * _d0[IX(i0, j0)] + t1 * _d0[IX(i0,j1)])+ s1 * (t0 * _d0[IX(i1, j0)] + t1 * _d0[IX(i1,j1)]);
+            } else {
+                for (int c = 0; c < channels; c++) {
+                    _d[IXColor(i, j, c)] = s0 * (t0 * _d0[IXColor(i0, j0, c)] + t1 * _d0[IXColor(i0, j1, c)]) + 
+                                           s1 * (t0 * _d0[IXColor(i1, j0, c)] + t1 * _d0[IXColor(i1, j1, c)]);
+                }
+            }
+	    }
     }
-    setBoundary(_d);
+}
+
+void MyWorld::advectDensity(double *_d, double *_d0, double *_u, double *_v) {
+    advect(_d, _d0, _u, _v, mChannels);
+    setBoundaryWithChannels(_d);
 }
 
 void MyWorld::advectVelocity(double *_u, double *_v, double *_u0, double *_v0) {
     // TODO: Add velocity advection code here
+    advect(_u, _u0, _u0, _v0);
+    advect(_v, _v0, _u0, _v0);
+    setVelocityBoundary(_u, _v);
 }
 
 void MyWorld::project(double *_u, double *_v, double *_u0, double *_v0) {
    // TODO: Add projection code here
+   double h = 1.0 / mNumCells;
+
+    for (int i = 1; i <= mNumCells; i++) {
+        for (int j = 1; j <= mNumCells; j++) {
+            // div
+            _v0[IX(i, j)] = -0.5 * h * (_u[IX(i + 1, j)] - _u[IX(i - 1, j)] +
+                                        _v[IX(i, j + 1)] - _v[IX(i, j - 1)]);
+            // p
+            _u0[IX(i, j)] = 0.0;
+        }
+    }
+
+    //setBoundary(_v0);
+    //setBoundary(_u0);
+    setVelocityBoundary(_u0, _v0);
+
+    for (int k = 0; k < 20; k++) {
+        for (int i = 1; i <= mNumCells; i++) {
+            for (int j = 1; j <= mNumCells; j++) {
+                _u0[IX(i, j)] = (_v0[IX(i, j)] + _u0[IX(i - 1, j)] + _u0[IX(i + 1, j)] + 
+                                                 _u0[IX(i, j - 1)] + _u0[IX(i, j + 1)]) / 4;
+            }
+        }
+        setBoundary(_u0);
+    }
+
+    for (int i = 1; i <= mNumCells; i++) {
+        for (int j = 1; j <= mNumCells; j++) {
+            _u[IX(i, j)] -= 0.5 * (_u0[IX(i + 1, j)] - _u0[IX(i - 1, j)]) / h;
+            _v[IX(i, j)] -= 0.5 * (_u0[IX(i, j + 1)] - _u0[IX(i, j - 1)]) / h;
+        }
+    }
+
+    //setBoundary(_v);
+    //setBoundary(_u);
+    setVelocityBoundary(_u, _v);
+
 }
 
 void MyWorld::externalForces() {
     int size = (mNumCells + 2) * (mNumCells + 2);
     for (int i = 0; i< size; i++) {
-        mPreDensity[i] = 0;
         mPreU[i] = 0;
         mPreV[i] = 0;
     }
+    std::fill_n(mPreDensity, size*mChannels, 0);
 }
 
-void MyWorld::linearSolve(double *_x, double *_x0, double _a, double _c) {
+void MyWorld::linearSolve(double *_x, double *_x0, double _a, double _c, int channels) {
     for (int k = 0; k < 20; k++) {
         for (int i = 1; i <= mNumCells; i++) {
             for (int j = 1; j <= mNumCells; j++) {
-                _x[IX(i, j)] = (_x0[IX(i, j)] + _a * (_x[IX(i-1, j)] + _x[IX(i+1, j)] + _x[IX(i, j-1)] + _x[IX(i, j+1)])) / _c;
+                if(channels == 1) {
+                    _x[IX(i, j)] = (_x0[IX(i, j)] + _a * (_x[IX(i-1, j)] + _x[IX(i+1, j)] + _x[IX(i, j-1)] + _x[IX(i, j+1)])) / _c;
+                } else {
+                    for (int c = 0; c < channels; c++) {
+                        _x[IXColor(i, j, c)] = (_x0[IXColor(i, j, c)] + _a * (_x[IXColor(i-1, j, c)] + 
+                                                _x[IXColor(i+1, j, c)] + _x[IXColor(i, j-1, c)] + _x[IXColor(i, j+1, c)])) / _c;
+                    }
+                }
             }
         }
     }
+}
+
+void MyWorld::setBoundaryWithChannels(double *_x) {
+    if(mChannels == 1) {
+        setBoundary(_x);
+    } else {
+        for (int c = 0; c < mChannels; c++) {
+            setBoundaryChannelsHelper(_x, c);
+        }
+    }
+}
+
+void MyWorld::setBoundaryChannelsHelper(double *_x, int c) {
+    for (int i = 1; i <= mNumCells; i++) {
+        _x[IXColor(0 ,i, c)] = _x[IXColor(1,i, c)];
+        _x[IXColor(mNumCells+1, i, c)] = _x[IXColor(mNumCells, i, c)];
+        _x[IXColor(i, 0, c)] = _x[IXColor(i, 1, c)];
+        _x[IXColor(i, mNumCells+1, c)] = _x[IXColor(i, mNumCells, c)];
+ 
+    }
+    _x[IXColor(0, 0, c)] = 0.5 * (_x[IXColor(1, 0, c)] + _x[IXColor(0, 1, c)]);
+    _x[IXColor(0, mNumCells+1, c)] = 0.5 * (_x[IXColor(1, mNumCells+1, c)] + _x[IXColor(0, mNumCells, c)]);
+    _x[IXColor(mNumCells+1, 0, c)] = 0.5 * (_x[IXColor(mNumCells, 0, c)] + _x[IXColor(mNumCells+1, 1, c)]);
+    _x[IXColor(mNumCells+1, mNumCells+1, c)] = 0.5 * (_x[IXColor(mNumCells, mNumCells+1, c)] + _x[IXColor(mNumCells+1, mNumCells, c)]);
 }
 
 void MyWorld::setBoundary(double *_x) {
