@@ -2,6 +2,7 @@
 #define _MYWORLD_
 
 #include <vector>
+#include <iostream>
 
 #define IX(i, j) ((i)+(getNumCells()+2)*(j))
 #define IXColor(i, j, c) ((i)*(getNumChannels())*(getNumCells()+2)+(j)*(getNumChannels())+(c))
@@ -24,12 +25,14 @@ class MyWorld {
     double getVelocityV(int _index) { return mV[_index]; }
     void setDensity(int _i, int _j, double _source) { mDensity[IX(_i, _j)] += mTimeStep * _source; }
     void setDensity(int _i, int _j, int c, double _source) { mDensity[IXColor(_i, _j, c)] += mTimeStep * _source; }
+    void setDensity(int _i, double _source) { mDensity[_i] = _source;}
     void setU(int _i, int _j, double _force) { mU[IX(_i, _j)] += mTimeStep * _force; }
     void setV(int _i, int _j, double _force) { mV[IX(_i, _j)] += mTimeStep * _force; }
     void reset();
     void simulate();
     int getNumChannels() { return mChannels;}
-    
+    void printDensity() { for(int i = 0; i < (2*getNumCells()*getNumChannels()); i++){ std::cout << std::hex << (int)mDensity[i] <<"," << std::endl; }}
+    unsigned char* getDensityAsByte();
  protected:
     void densityStep(double *_x, double *_x0);
     void velocityStep(double *_u, double *_v, double *_u0, double *_v0);
@@ -57,6 +60,7 @@ class MyWorld {
     double *mPreU;
     double *mPreV;
     double *mDensity;
+    unsigned char *mDensityInBytes;
     double *mPreDensity;
 };
 

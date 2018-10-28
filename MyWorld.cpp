@@ -1,10 +1,18 @@
 #include "MyWorld.h"
 
-
 MyWorld::MyWorld() {
 }
 
 MyWorld::~MyWorld() {
+    delete [] mU;
+    delete [] mV;
+    delete [] mPreU;
+    delete [] mPreV;
+    delete [] mDensity;
+    delete [] mPreDensity;
+    if(mDensityInBytes != NULL) {
+        delete [] mDensityInBytes;
+    }
 }
 
 void MyWorld::initialize(int _numCells, double _timeStep, double _diffCoef, double _viscCoef, int channels) {
@@ -12,7 +20,7 @@ void MyWorld::initialize(int _numCells, double _timeStep, double _diffCoef, doub
     mTimeStep = _timeStep;
     mDiffusionCoef = _diffCoef;
     mViscosityCoef = _viscCoef;
-    if(channels == 0) {
+    if(channels <= 0) {
         channels = 1;
     }
     mChannels = channels;
@@ -37,6 +45,29 @@ void MyWorld::reset() {
     std::fill_n(mPreV, size, 0);
     std::fill_n(mDensity, size*mChannels, 0);
     std::fill_n(mPreDensity, size*mChannels, 0);
+}
+
+unsigned char* MyWorld::getDensityAsByte() {
+    int size = (mNumCells + 2) * (mNumCells + 2) * mChannels;
+    if(mDensityInBytes== NULL) {
+        mDensityInBytes = new unsigned char[size];
+    }
+    /*for (int i = 1; i <= mNumCells; i++) {
+            for (int j = 1; j <= mNumCells; j++) {
+                if(mChannels == 1) {
+                    mDensityInBytes[IX(i, j)] = 100*mDensity[IX(i, j)];
+                } else {
+                    for (int c = 0; c < mChannels; c++) {
+                        mDensityInBytes[IXColor(i, j, c)] = 100*mDensity[IXColor(i, j, c)];
+                    }
+                }
+            }
+    }*/
+    for(int i = 0; i < size; i++) {
+        //std::cout << mDensity[i] << "," << std::endl;
+        mDensityInBytes[i] = (unsigned char) 100*mDensity[i];
+    }
+    return mDensityInBytes;
 }
 
 double MyWorld::getTimeStep() {
