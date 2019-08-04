@@ -10,7 +10,8 @@
 
 #include "MyWorld.h"
 #include "Timer.h"
-#include <Math.h>
+#include <math.h>
+#include <string.h> 
 
 using namespace std;
 

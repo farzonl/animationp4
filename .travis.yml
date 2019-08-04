@@ -1,0 +1,21 @@
+matrix:
+  include:
+    - os: osx
+      osx_image: xcode 8.3
+      compiler: clang
+      script:
+       - make
+    - os: linux
+      before_install:
+       - sudo apt-get install freeglut3-dev
+      addons:
+        apt:
+          update: true
+      dist: xenial
+      compiler: gcc
+      script:
+        - make
+      after_success:
+       - export CODECOV_TOKEN="474a6603-19ee-4f29-8bdf-28dff37655ac"
+       - gcov *.cpp
+       - bash <(curl -s https://codecov.io/bash)
